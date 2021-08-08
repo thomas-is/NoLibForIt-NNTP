@@ -7,27 +7,21 @@ define( "NNTP_EOF", ".".NNTP_EOL );
 
 class Client {
 
-  public string $host;
-  public int    $port;
-  public bool   $useTOR;
-  public        $errorCode;
-  public        $errorMessage;
+  public  string $host;
+  public  int    $port;
+  private bool   $useTOR;
+  private        $errorCode;
+  private        $errorMessage;
 
-  public        $status;
-  public array  $lines;
+  public         $status;
+  public  array  $lines;
+  private        $socket;
 
-  private       $socket;
+  public function __construct( $host, $port = 119, $useTOR = false) {
 
-  public function __construct() {
-
-    if( ! defined('NNTP_HOST') ) {
-      error_log("[".__CLASS__."] undefined NNTP_HOST");
-      die();
-    }
-
-    $this->host   = NNTP_HOST;
-    $this->port   = defined('NNTP_PORT'   ) ? NNTP_HOST    : 119;
-    $this->useTOR = defined('NNTP_USE_TOR') ? NNTP_USE_TOR : false;
+    $this->host   = $host   ;
+    $this->port   = $port   ;
+    $this->useTOR = $useTOR ;
 
     if ( $this->useTOR ) {
       $this->socket = \TOR::open( $this->host, $this->port, $this->errorCode, $this->errorMessage, 10);
@@ -63,12 +57,14 @@ class Client {
 
   private function readLines() {
     $this->lines = array();
+    $this->handleEmptySocket();
     while ( ! feof($this->socket) ) {
       $line = fgets($this->socket);
       if( $line == NNTP_EOF ) {
         break;
       }
-      $this->lines[] = $this->decodeLine(substr($line,0,-2));
+//      $this->lines[] = $this->decodeLine(substr($line,0,-2));
+      $this->lines[] = substr($line,0,-2);
     }
   }
 
@@ -111,34 +107,34 @@ class Client {
   }
 
   public function article($id) {
-    $this->send("ARTICLE $id".NTTP_EOL);
+    $this->send("ARTICLE $id".NNTP_EOL);
     $this->readArticle();
   }
   public function head($id) {
-    $this->send("HEAD $id".NTTP_EOL);
+    $this->send("HEAD $id".NNTP_EOL);
     $this->readArticle();
   }
   public function body($id) {
-    $this->send("BODY $id".NTTP_EOL);
+    $this->send("BODY $id".NNTP_EOL);
     $this->readArticle();
   }
   public function stat($id) {
-    $this->send("STAT $id".NTTP_EOL);
+    $this->send("STAT $id".NNTP_EOL);
     $this->readArticle();
   }
 
   public function help() {
-    $this->send("HELP".NTTP_EOL);
+    $this->send("HELP".NNTP_EOL);
     $this->readArticle();
   }
 
   public function quit() {
-    $this->send("QUIT".NTTP_EOL);
+    $this->send("QUIT".NNTP_EOL);
     $this->disconnect();
   }
 
   public function group( $group ) {
-    $this->send("GROUP $group".NTTP_EOL);
+    $this->send("GROUP $group".NNTP_EOL);
     $this->readStatus();
   }
 
@@ -157,7 +153,7 @@ class Client {
     if ( $range ) {
       $cmd .= " $range";
     }
-    $this->send("$cmd".NTTP_EOL);
+    $this->send("$cmd".NNTP_EOL);
     $this->readStatus();
     /**
      * 224 Overview information follows
@@ -173,7 +169,7 @@ class Client {
 
   public function post( $lines ) {
 
-    $this->send("POST".NTTP_EOL);
+    $this->send("POST".NNTP_EOL);
     $this->readStatus;
 
     if( $this->status->code != 340 ) {
