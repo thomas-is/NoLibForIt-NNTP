@@ -63,20 +63,16 @@ class Client {
       if( $line == NNTP_EOF ) {
         break;
       }
-//      $this->lines[] = $this->decodeLine(substr($line,0,-2));
-      $this->lines[] = substr($line,0,-2);
+      $this->lines[] = $this->decodeLine(substr($line,0,-2));
     }
   }
 
   public function decodeLine( $line ) {
-    $mime = imap_mime_header_decode($line);
-    if ( empty($mime) ) {
-      return "";
-    }
-    $decoded = "";
-    foreach ( $mime as $element ) {
-      $decoded .= $element->text;
-    }
+    /**
+      * output encoding should be UTF-8
+      * but it doesn't work ...
+      */
+    $decoded = iconv_mime_decode($line,0,"ISO-8859-1");
     return $decoded;
   }
 
