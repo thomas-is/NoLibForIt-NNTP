@@ -57,6 +57,7 @@ class Group {
     $this->nntp->xover("$first-$last");
     $lines = $this->nntp->lines;
     foreach( $lines as $line ) {
+      $line = iconv_mime_decode($line,2,"UTF-8");
       $props                   = explode("\t",$line);
       $element                 = array();
       $element['Id']           = @$props[0];

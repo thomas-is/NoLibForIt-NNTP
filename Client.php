@@ -63,13 +63,8 @@ class Client {
       if( $line == NNTP_EOF ) {
         break;
       }
-      $this->lines[] = $this->decodeLine(substr($line,0,-2));
+      $this->lines[] = substr($line,0,-2);
     }
-  }
-
-  public function decodeLine( $line ) {
-    $decoded = iconv_mime_decode($line,0,"UTF-8");
-    return $decoded;
   }
 
   private function readArticle() {
