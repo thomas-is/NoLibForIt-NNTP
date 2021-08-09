@@ -68,11 +68,7 @@ class Client {
   }
 
   public function decodeLine( $line ) {
-    /**
-      * output encoding should be UTF-8
-      * but it doesn't work ...
-      */
-    $decoded = iconv_mime_decode($line,0,"ISO-8859-1");
+    $decoded = iconv_mime_decode($line,0,"UTF-8");
     return $decoded;
   }
 
