@@ -2,6 +2,8 @@
 
 namespace NoLibForIt\NNTP;
 
+use NoLibForIt\TOR\TOR as TOR;
+
 define( "NNTP_EOL", "\r\n" );
 define( "NNTP_EOF", ".".NNTP_EOL );
 
@@ -9,7 +11,7 @@ class Client {
 
   public  string $host;
   public  int    $port;
-  private bool   $useTOR;
+  public  bool   $useTOR;
   private        $errorCode;
   private        $errorMessage;
 
@@ -17,16 +19,16 @@ class Client {
   public  array  $lines;
   private        $socket;
 
-  public function __construct( $host, $port = 119, $useTOR = false) {
+  public function __construct( $host, $port = 119, $useTOR = false ) {
 
     $this->host   = $host   ;
     $this->port   = $port   ;
     $this->useTOR = $useTOR ;
 
     if ( $this->useTOR ) {
-      $this->socket = \TOR::open( $this->host, $this->port, $this->errorCode, $this->errorMessage, 10);
+      $this->socket = TOR::open( $this->host, $this->port, $this->errorCode, $this->errorMessage, 10);
     } else {
-      $this->socket =  fsockopen( $this->host, $this->port, $this->errorCode, $this->errorMessage, 10);
+      $this->socket = fsockopen( $this->host, $this->port, $this->errorCode, $this->errorMessage, 10);
     }
 
     $this->readStatus();
@@ -39,7 +41,7 @@ class Client {
   }
 
   private function handleEmptySocket() {
-    if ( ! $this->socket ) {
+    if ( empty($this->socket) ) {
       $this->status = new Status( "500 Not connected".NNTP_EOL );
       die();
     }
@@ -91,6 +93,56 @@ class Client {
       case 223:
       default:
     }
+  }
+
+  public function auth( $user, $pass ) {
+    /**
+      * <https://datatracker.ietf.org/doc/html/rfc4643#section-2.3.1>
+      *
+      * These commands MUST NOT be pipelined.
+      *
+      * Syntax
+      *   AUTHINFO USER username
+      *   AUTHINFO PASS password
+      *
+      * Responses
+      *   281 Authentication accepted
+      *   381 Password required [1]
+      *   481 Authentication failed/rejected
+      *   482 Authentication commands issued out of sequence
+      *   502 Command unavailable [2]
+      *
+      * [1] Only valid for AUTHINFO USER.  Note that unlike traditional 3xx
+      * codes, which indicate that the client may continue the current
+      * command, the legacy 381 code means that the AUTHINFO PASS
+      * command must be used to complete the authentication exchange.
+      *
+      * [2] If authentication has already occurred, AUTHINFO USER/PASS are
+      * not valid commands (see Section 2.2).
+      *
+      * NOTE: Notwithstanding Section 3.2.1 of [NNTP], the server MUST
+      * NOT return 480 in response to AUTHINFO USER/PASS.
+      *
+      * Parameters
+      * username = string identifying the user/client
+      * password = string representing the user's password
+      *
+      **/
+
+    $this->send("AUTHINFO USER $user".NNTP_EOL);
+    $this->readStatus();
+    if( $this->status->code == 281 ) {
+      /* 281 Ok */
+      return true;
+    }
+    if( $this->status->code != 381 ) {
+      return false;
+    }
+    /* 381 PASS required */
+    $this->send("AUTHINFO PASS $pass".NNTP_EOL);
+    $this->readStatus();
+    /* 281 Ok */
+    return $this->status->code == 281;
   }
 
   public function article($id) {
@@ -157,7 +209,7 @@ class Client {
   public function post( $lines ) {
 
     $this->send("POST".NNTP_EOL);
-    $this->readStatus;
+    $this->readStatus();
 
     if( $this->status->code != 340 ) {
       return false;
@@ -168,7 +220,7 @@ class Client {
     }
     $this->send(NNTP_EOL);
     $this->send(NNTP_EOF);
-    $this->readStatus;
+    $this->readStatus();
 
     return $this->status->code == 240;
 
