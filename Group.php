@@ -57,19 +57,30 @@ class Group {
     $this->nntp->xover("$first-$last");
     $lines = $this->nntp->lines;
     foreach( $lines as $line ) {
-      $line = iconv_mime_decode($line,2,"UTF-8");
-      $props                   = explode("\t",$line);
+
       $element                 = array();
-      $element['Id']           = @$props[0];
-      $element['Subject']      = @$props[1];
-      $element['From']         = @$props[2];
-      $element['Date']         = @$props[3];
-      $element['Message-ID']   = @$props[4];
-      $element['References']   = @$props[5];
-      $element['Size']         = @$props[6];
-      $element['Lines']        = @$props[7];
-      $element['Xref']         = @$props[8];
+      $props                   = explode("\t",$line);
+
+      $element['Id']           = (string) @$props[0];
+      $element['Subject']      = (string) @$props[1];
+      $element['From']         = (string) @$props[2];
+      $element['Date']         = (string) @$props[3];
+      $element['Message-ID']   = (string) @$props[4];
+      $element['References']   = (string) @$props[5];
+      $element['Size']         = (string) @$props[6];
+      $element['Lines']        = (string) @$props[7];
+      $element['Xref']         = (string) @$props[8];
+
+      /* mime decode Subject and From */
+      $element['Subject'] = iconv_mime_decode($element['Subject'],2,"UTF-8");
+      $element['From']    = iconv_mime_decode($element['From']   ,2,"UTF-8");
+
+      /* remove 'Xref: ' from Xref  */
+      if( strlen($element['Xref']) > 6 ) {
+        $element['Xref'] = substr($element['Xref'],6);
+      }
       $this->overview[] = $element;
+
     }
 
   }
