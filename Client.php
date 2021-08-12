@@ -164,7 +164,7 @@ class Client {
     $this->readArticle();
   }
   public function body($n) {
-    $this->send("BODY $id");
+    $this->send("BODY $n");
     $this->readArticle();
   }
   public function stat($n) {
