@@ -47,14 +47,23 @@ class Client {
     }
   }
 
-  private function send( $line ) {
-    $this->handleEmptySocket();
-    fwrite( $this->socket, $line );
-  }
-
   private function readStatus() {
     $this->handleEmptySocket();
     $this->status = new Status( fgets($this->socket) );
+  }
+
+  private function send( $text ) {
+    $this->handleEmptySocket();
+    if( ! is_array($text) ) {
+      $text = (string) $text;
+      fwrite( $this->socket, $text.NNTP_EOL );
+    } else {
+      foreach( $text as $line ) {
+        $line = (string) $line;
+        fwrite( $this->socket, $line.NNTP_EOL );
+      }
+    }
+    $this->readStatus();
   }
 
   private function readLines() {
@@ -65,33 +74,11 @@ class Client {
       if( $line == NNTP_EOF ) {
         break;
       }
+      /* decode ".." as "." */
+      if( $line == "..".NNTP_EOL ) {
+        $line = ".".NNTP_EOL;
+      }
       $this->lines[] = substr($line,0,-2);
-    }
-  }
-
-  private function readArticle() {
-    /**
-     *  ARTICLE, BODY, HEAD, and STAT status codes
-     *
-     *  220 n <a> article retrieved - head and body follow
-     *         (n = article number, <a> = message-id)
-     *  221 n <a> article retrieved - head follows
-     *  222 n <a> article retrieved - body follows
-     *  223 n <a> article retrieved - request text separately
-     *  412 no newsgroup has been selected
-     *  420 no current article has been selected
-     *  423 no such article number in this group
-     *  430 no such article found
-     **/
-    $this->readStatus();
-    switch( $this->status->code ) {
-      case 220:
-      case 221:
-      case 222:
-        $this->readLines();
-        break;
-      case 223:
-      default:
     }
   }
 
@@ -129,8 +116,7 @@ class Client {
       *
       **/
 
-    $this->send("AUTHINFO USER $user".NNTP_EOL);
-    $this->readStatus();
+    $this->send("AUTHINFO USER $user");
     if( $this->status->code == 281 ) {
       /* 281 Ok */
       return true;
@@ -139,42 +125,65 @@ class Client {
       return false;
     }
     /* 381 PASS required */
-    $this->send("AUTHINFO PASS $pass".NNTP_EOL);
-    $this->readStatus();
+    $this->send("AUTHINFO PASS $pass");
     /* 281 Ok */
     return $this->status->code == 281;
   }
 
-  public function article($id) {
-    $this->send("ARTICLE $id".NNTP_EOL);
+  private function readArticle() {
+    /**
+     *  ARTICLE, BODY, HEAD, and STAT status codes
+     *
+     *  220 n <a> article retrieved - head and body follow
+     *         (n = article number, <a> = message-id)
+     *  221 n <a> article retrieved - head follows
+     *  222 n <a> article retrieved - body follows
+     *  223 n <a> article retrieved - request text separately
+     *  412 no newsgroup has been selected
+     *  420 no current article has been selected
+     *  423 no such article number in this group
+     *  430 no such article found
+     **/
+    switch( $this->status->code ) {
+      case 220:
+      case 221:
+      case 222:
+        $this->readLines();
+        break;
+      case 223:
+      default:
+    }
+  }
+
+  public function article($n) {
+    $this->send("ARTICLE $n");
     $this->readArticle();
   }
-  public function head($id) {
-    $this->send("HEAD $id".NNTP_EOL);
+  public function head($n) {
+    $this->send("HEAD $n");
     $this->readArticle();
   }
-  public function body($id) {
-    $this->send("BODY $id".NNTP_EOL);
+  public function body($n) {
+    $this->send("BODY $id");
     $this->readArticle();
   }
-  public function stat($id) {
-    $this->send("STAT $id".NNTP_EOL);
+  public function stat($n) {
+    $this->send("STAT $n");
     $this->readArticle();
   }
 
   public function help() {
-    $this->send("HELP".NNTP_EOL);
+    $this->send("HELP");
     $this->readArticle();
   }
 
   public function quit() {
-    $this->send("QUIT".NNTP_EOL);
+    $this->send("QUIT");
     $this->disconnect();
   }
 
   public function group( $group ) {
-    $this->send("GROUP $group".NNTP_EOL);
-    $this->readStatus();
+    $this->send("GROUP $group");
   }
 
   public function xover( $range = null ) {
@@ -192,8 +201,7 @@ class Client {
     if ( $range ) {
       $cmd .= " $range";
     }
-    $this->send("$cmd".NNTP_EOL);
-    $this->readStatus();
+    $this->send("$cmd");
     /**
      * 224 Overview information follows
      * 412 No news group current selected
@@ -207,23 +215,21 @@ class Client {
   }
 
   public function post( $lines ) {
-
-    $this->send("POST".NNTP_EOL);
-    $this->readStatus();
-
+    $this->send("POST");
     if( $this->status->code != 340 ) {
       return false;
     }
-
-    foreach( $lines as $line ) {
-      $this->send($line.NNTP_EOL);
+    foreach( $lines as &$line ) {
+      /* encode "." as ".." */
+      if( $line == "." ) {
+        $line = "..";
+      }
     }
-    $this->send(NNTP_EOL);
-    $this->send(NNTP_EOF);
-    $this->readStatus();
-
+    /* append NNTP_EOL, NNTP_EOF */
+    $lines[] = "";
+    $lines[] = ".";
+    $this->send($lines);
     return $this->status->code == 240;
-
   }
 
 
