@@ -13,9 +13,13 @@ class Article {
     $index = array_search("",$lines);
     if( $index ) {
       $index++;
-      $this->body   = array_slice($lines,$index);
+      $this->body = array_slice($lines,$index);
     }
     $this->charset = $this->encoding();
+    foreach( $this->body as &$line ) {
+      $decoded = iconv($this->charset,"UTF-8",$line);
+      $line = $decoded ? $decoded : $line;
+    }
   }
 
   public function encoding() {
@@ -23,7 +27,8 @@ class Article {
     if( empty($charset) ) {
       return "ASCII";
     }
-    $charset = strtoupper($charset);   
+    $charset=str_replace("\"","",$charset);
+    $charset = strtoupper($charset);
     $field='CHARSET=';
     $start=strpos($charset,$field);
     if( empty($start) ) {
@@ -35,8 +40,9 @@ class Article {
     if( empty($end) ) {
       return $charset;
     }
-    return substr($charset,0,$end);
+    $charset = substr($charset,0,$end);
 
+    return $charset;
   }
 
   private function parseHeader( $lines ) {
@@ -52,14 +58,10 @@ class Article {
     $key = null;
 
     foreach( $lines as $line ) {
-
       if( $line == "" ) {
         // assuming end of HEADER
         break;
       }
-
-
-
       // handle multi lines field
       if( $line[0] == " " || $line[0] == "\t") {
         if( $key !== null ) {
