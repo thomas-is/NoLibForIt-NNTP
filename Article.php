@@ -9,6 +9,7 @@ class Article {
   public  string  $charset;
 
   public function __construct( $lines = array() ) {
+    $this->body = array();
     $this->parseHeader($lines);
     $index = array_search("",$lines);
     if( $index ) {
